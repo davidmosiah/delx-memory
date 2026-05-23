@@ -1,0 +1,6 @@
+# Codex CLI MCP server configuration.
+# Add to ~/.codex/config.toml under [mcp_servers].
+
+[mcp_servers.delx-memory]
+command = "npx"
+args = ["-y", "delx-memory"]

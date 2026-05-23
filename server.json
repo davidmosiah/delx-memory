@@ -1,0 +1,58 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.davidmosiah/delx-memory",
+  "description": "Local-first persistent memory MCP server. Shared SQLite-backed key/value store for Claude Desktop, Cursor, Hermes, OpenClaw, Codex — secret-blocking, searchable, TTL-aware.",
+  "repository": {
+    "url": "https://github.com/davidmosiah/delx-memory",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "delx-memory",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "DELX_MEMORY_PATH",
+          "description": "Optional path to the SQLite store. Defaults to ~/.delx-memory/db.sqlite.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "DELX_MEMORY_TRANSPORT",
+          "description": "Optional transport: stdio (default) or http.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "DELX_MEMORY_HOST",
+          "description": "HTTP host when transport=http. Defaults to 127.0.0.1.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "DELX_MEMORY_PORT",
+          "description": "HTTP port when transport=http. Defaults to 3030.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "DELX_MEMORY_ALLOWED_ORIGIN",
+          "description": "CORS allow-origin when transport=http. Defaults to http://HOST:PORT.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        }
+      ]
+    }
+  ],
+  "websiteUrl": "https://github.com/davidmosiah/delx-memory"
+}

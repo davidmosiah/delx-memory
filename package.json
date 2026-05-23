@@ -1,0 +1,82 @@
+{
+  "name": "delx-memory",
+  "version": "0.1.0",
+  "description": "Local-first persistent memory MCP server. Shared SQLite store for Claude Desktop, Cursor, Hermes, OpenClaw, Codex.",
+  "type": "module",
+  "bin": {
+    "delx-memory": "dist/index.js",
+    "delx-memory-server": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "SECURITY.md",
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "server.json",
+    "llms.txt",
+    "examples"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "smoke": "node scripts/smoke-tools.mjs",
+    "test:secret-detector": "node scripts/test-secret-detector.mjs",
+    "test:ttl": "node scripts/test-ttl.mjs",
+    "test:bulk-tag-delete": "node scripts/test-bulk-tag-delete.mjs",
+    "test:metadata": "node scripts/metadata-check.mjs",
+    "test": "npm run typecheck && npm run build && npm run smoke && npm run test:secret-detector && npm run test:ttl && npm run test:bulk-tag-delete && npm run test:metadata",
+    "prepublishOnly": "npm test"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "memory",
+    "persistent-memory",
+    "agent-memory",
+    "local-first",
+    "sqlite",
+    "ai-agents",
+    "claude",
+    "cursor",
+    "hermes"
+  ],
+  "author": "David Batista",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.21.0",
+    "better-sqlite3": "^12.9.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "zod": "^4.4.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.6.0",
+    "tsx": "^4.20.6",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/davidmosiah/delx-memory.git"
+  },
+  "bugs": {
+    "url": "https://github.com/davidmosiah/delx-memory/issues",
+    "email": "support@delx.ai"
+  },
+  "homepage": "https://github.com/davidmosiah/delx-memory",
+  "mcpName": "io.github.davidmosiah/delx-memory",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "dist/index.js"
+}

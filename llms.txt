@@ -1,0 +1,18 @@
+# delx-memory
+Local-first persistent memory MCP server. Shared SQLite store any MCP-speaking agent (Claude Desktop, Cursor, Hermes, OpenClaw, Codex) can read and write — so context survives across sessions AND across tools.
+Repository: https://github.com/davidmosiah/delx-memory
+NPM: https://www.npmjs.com/package/delx-memory
+Primary command: npm exec --yes --package=delx-memory -- delx-memory doctor
+MCP command: delx-memory
+
+- MCP registry name: io.github.davidmosiah/delx-memory
+- 8 tools, 4 read-only (always safe), 4 mutations (require explicit_user_intent: true).
+- Standard tools (read-only): memory_stats, memory_list, memory_get, memory_search.
+- Mutation tools: memory_set, memory_forget, memory_forget_by_tag, memory_export.
+- On a fresh session, start with memory_stats then memory_list to discover what is already remembered.
+- delx-memory is NOT a secrets manager. Credential-shaped keys (oauth/token/secret/password/cookie/refresh/api_key/bearer/credential/session_id) are refused. Credential-shaped string values (JWT, Bearer ..., sk_live_, xoxb-, github_pat_, ghp_, sk-..., AKIA..., Authorization: ...) are refused. Use a system keychain for credentials.
+- Storage: SQLite at ~/.delx-memory/db.sqlite (override via DELX_MEMORY_PATH). Directory 0700, file 0600 (best effort on non-POSIX).
+- Per-value cap: 64 KB. Not a blob store.
+- TTL is best-effort (lazy delete on read), not guaranteed cryptographic erasure.
+- No telemetry. No phone-home. The file is local-only — back it up like any other dotfile if you care about durability.
+- Mutations are explicit: an agent that calls memory_set without explicit_user_intent: true gets a validation error.

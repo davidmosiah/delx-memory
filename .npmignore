@@ -1,0 +1,12 @@
+src/
+scripts/
+.github/
+.gitignore
+tsconfig.json
+*.sqlite
+*.sqlite-journal
+.env
+.env.*
+/tmp/
+.DS_Store
+node_modules/

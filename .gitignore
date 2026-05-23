@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.*
+*.sqlite
+*.sqlite-journal
+/tmp/
+.DS_Store
+*.log
+npm-debug.log*
+coverage/
