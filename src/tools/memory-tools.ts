@@ -186,7 +186,7 @@ export function registerMemoryTools(server: McpServer): void {
         const input = MemorySearchInputSchema.parse(rawInput);
         sweepExpired();
         const db = getDb();
-        const escaped = input.query.replace(/[%_]/g, "\\$&");
+        const escaped = input.query.replace(/[\\%_]/g, "\\$&");
         const pattern = `%${escaped}%`;
         const rows = db
           .prepare<unknown[], MemoryRow>(
