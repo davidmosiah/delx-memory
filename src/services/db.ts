@@ -143,5 +143,6 @@ export function decodeTags(tagBlob: string | null): string[] | null {
 }
 
 export function tagLikePattern(tag: string): string {
-  return `%,${tag},%`;
+  const escaped = tag.replace(/[\\%_]/g, "\\$&");
+  return `%,${escaped},%`;
 }

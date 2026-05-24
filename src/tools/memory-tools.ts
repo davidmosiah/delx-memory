@@ -138,11 +138,11 @@ export function registerMemoryTools(server: McpServer): void {
         const clauses: string[] = [];
         const params: unknown[] = [];
         if (input.prefix) {
-          clauses.push("key LIKE ?");
-          params.push(input.prefix.replace(/[%_]/g, "\\$&") + "%");
+          clauses.push(`key LIKE ? ESCAPE '\\'`);
+          params.push(input.prefix.replace(/[\\%_]/g, "\\$&") + "%");
         }
         if (input.tag) {
-          clauses.push("tags LIKE ?");
+          clauses.push(`tags LIKE ? ESCAPE '\\'`);
           params.push(tagLikePattern(input.tag));
         }
         const where = clauses.length ? "WHERE " + clauses.join(" AND ") : "";
@@ -385,7 +385,7 @@ export function registerMemoryTools(server: McpServer): void {
         const input = MemoryForgetByTagInputSchema.parse(rawInput);
         const db = getDb();
         const info = db
-          .prepare("DELETE FROM memory WHERE tags LIKE ?")
+          .prepare(`DELETE FROM memory WHERE tags LIKE ? ESCAPE '\\'`)
           .run(tagLikePattern(input.tag));
         return makeResponse({
           tag: input.tag,
