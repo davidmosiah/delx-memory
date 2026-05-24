@@ -1,6 +1,6 @@
 {
   "name": "delx-memory",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Local-first persistent memory MCP server. Shared SQLite store for Claude Desktop, Cursor, Hermes, OpenClaw, Codex.",
   "type": "module",
   "bin": {
