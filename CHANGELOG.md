@@ -2,6 +2,15 @@
 
 All notable changes to `delx-memory` follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and adhere to [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] — 2026-05-29
+
+### Added
+- `examples/fts5-search.md` quickstart plus a runnable
+  `examples/fts5-search-quickstart.mjs` that boots the real server against a
+  throwaway DB and demonstrates the v0.2 FTS5 engine: bm25-ranked multi-word
+  search, prefix matching, diacritic folding, and tag indexing. The Markdown is
+  the script's verbatim captured output. README links to it.
+
 ## [0.2.0] — 2026-05-29
 
 ### Added
@@ -40,5 +49,6 @@ Initial release.
 - No telemetry, no phone-home.
 - All test scripts use ephemeral tmpdirs — no test ever touches the user's real DB.
 
+[0.2.1]: https://github.com/davidmosiah/delx-memory/releases/tag/v0.2.1
 [0.2.0]: https://github.com/davidmosiah/delx-memory/releases/tag/v0.2.0
 [0.1.0]: https://github.com/davidmosiah/delx-memory/releases/tag/v0.1.0

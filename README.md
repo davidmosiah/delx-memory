@@ -81,7 +81,7 @@ See [`examples/codex.toml`](./examples/codex.toml).
 | `memory_stats` | High-level: total keys, DB size, oldest entry, DB path. **Start here on any session.** |
 | `memory_list` | List keys (not values) with optional prefix or tag filter. |
 | `memory_get` | Exact key lookup. Returns value + timestamps + tags + metadata. |
-| `memory_search` | FTS5 full-text search across keys, values and tags — bm25 relevance ranking, stemming, diacritic folding, prefix matching; LIKE fallback if FTS5 is missing. Returns snippets. |
+| `memory_search` | FTS5 full-text search across keys, values and tags — bm25 relevance ranking, stemming, diacritic folding, prefix matching; LIKE fallback if FTS5 is missing. Returns snippets. See the [search quickstart](./examples/fts5-search.md). |
 
 ### Mutations (require `explicit_user_intent: true`)
 
