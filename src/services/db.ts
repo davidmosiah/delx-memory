@@ -15,6 +15,9 @@ export interface MemoryRow {
 
 let cachedDb: Database.Database | null = null;
 let cachedPath: string | null = null;
+// Per-connection cache of whether the FTS5 virtual table is usable. Reset
+// whenever the cached connection changes.
+let cachedFtsReady: boolean | null = null;
 
 export function resolveDbPath(): string {
   return process.env.DELX_MEMORY_PATH ?? DEFAULT_DB_PATH;
@@ -56,6 +59,7 @@ export function getDb(): Database.Database {
     cachedDb.close();
     cachedDb = null;
     cachedPath = null;
+    cachedFtsReady = null;
   }
 
   ensureParentDirSecure(path);
@@ -83,7 +87,106 @@ export function getDb(): Database.Database {
 
   cachedDb = db;
   cachedPath = path;
+  cachedFtsReady = setupFts(db);
   return db;
+}
+
+/**
+ * Probe whether this SQLite build supports FTS5. Cheap (creates + drops a
+ * temp virtual table). Some distro builds ship without the FTS5 module.
+ */
+function ftsSupported(db: Database.Database): boolean {
+  try {
+    db.exec("CREATE VIRTUAL TABLE IF NOT EXISTS temp._delx_fts_probe USING fts5(x);");
+    db.exec("DROP TABLE IF EXISTS temp._delx_fts_probe;");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Bootstrap the FTS5 virtual table + sync triggers that mirror the searchable
+ * columns (key, value, tags) of `memory`. Uses an external-content table keyed
+ * on memory.rowid so the index stores no duplicate copy of the data. Triggers
+ * keep it in sync on insert/update/delete. Backfills any pre-existing rows
+ * (e.g. a 0.1.x DB upgrading in place). Returns true if FTS5 is usable.
+ */
+function setupFts(db: Database.Database): boolean {
+  if (!ftsSupported(db)) return false;
+  try {
+    db.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(
+        key, value, tags,
+        content='memory',
+        content_rowid='rowid',
+        tokenize='porter unicode61 remove_diacritics 2'
+      );
+
+      CREATE TRIGGER IF NOT EXISTS memory_fts_ai AFTER INSERT ON memory BEGIN
+        INSERT INTO memory_fts(rowid, key, value, tags)
+        VALUES (new.rowid, new.key, new.value, COALESCE(new.tags, ''));
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS memory_fts_ad AFTER DELETE ON memory BEGIN
+        INSERT INTO memory_fts(memory_fts, rowid, key, value, tags)
+        VALUES ('delete', old.rowid, old.key, old.value, COALESCE(old.tags, ''));
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS memory_fts_au AFTER UPDATE ON memory BEGIN
+        INSERT INTO memory_fts(memory_fts, rowid, key, value, tags)
+        VALUES ('delete', old.rowid, old.key, old.value, COALESCE(old.tags, ''));
+        INSERT INTO memory_fts(rowid, key, value, tags)
+        VALUES (new.rowid, new.key, new.value, COALESCE(new.tags, ''));
+      END;
+    `);
+
+    // Backfill rows that predate the FTS index (in-place upgrade from 0.1.x).
+    const ftsCount = db
+      .prepare<unknown[], { c: number }>("SELECT COUNT(*) AS c FROM memory_fts")
+      .get();
+    const memCount = db
+      .prepare<unknown[], { c: number }>("SELECT COUNT(*) AS c FROM memory")
+      .get();
+    if ((ftsCount?.c ?? 0) === 0 && (memCount?.c ?? 0) > 0) {
+      db.exec(
+        "INSERT INTO memory_fts(memory_fts) VALUES ('rebuild');",
+      );
+    }
+    return true;
+  } catch {
+    // If anything in FTS setup fails we degrade gracefully to LIKE search.
+    return false;
+  }
+}
+
+/**
+ * Whether the current connection has a usable FTS5 index. Used by the search
+ * tool to decide between FTS5 ranking and the LIKE fallback.
+ */
+export function isFtsReady(): boolean {
+  getDb(); // ensure connection + cachedFtsReady are initialized
+  return cachedFtsReady === true;
+}
+
+/**
+ * Build an FTS5 MATCH expression from a free-form user query. Each whitespace
+ * token is matched both as a stemmed phrase (`"tok"`) and as a prefix
+ * (`"tok"*`), OR-combined so partial words and word-stems both hit. Quoting
+ * every token neutralizes FTS5 operators (AND/OR/NOT/NEAR) and punctuation
+ * that would otherwise be a syntax error. Returns null if the query has no
+ * usable tokens.
+ */
+export function buildFtsMatch(raw: string): string | null {
+  const tokens = raw
+    .trim()
+    .split(/\s+/)
+    // Double-quote is the FTS5 phrase delimiter — strip it so a quote inside a
+    // token can't break out of the phrase.
+    .map((t) => t.replace(/"/g, " ").trim())
+    .filter((t) => t.length > 0);
+  if (tokens.length === 0) return null;
+  return tokens.map((t) => `("${t}" OR "${t}"*)`).join(" OR ");
 }
 
 /**
@@ -94,6 +197,7 @@ export function closeDb(): void {
     cachedDb.close();
     cachedDb = null;
     cachedPath = null;
+    cachedFtsReady = null;
   }
 }
 

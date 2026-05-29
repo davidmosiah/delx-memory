@@ -2,6 +2,23 @@
 
 All notable changes to `delx-memory` follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and adhere to [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] — 2026-05-29
+
+### Added
+- FTS5 full-text search backing `memory_search`: an external-content virtual
+  table mirrors `key`/`value`/`tags`, kept in sync via insert/update/delete
+  triggers. Queries use bm25 relevance ranking (key-weighted), Porter stemming,
+  diacritic folding, and per-token prefix matching, so multi-word, partial and
+  accent-insensitive queries now rank by relevance instead of last-write order.
+- `memory_search` responses now include an `engine` field (`"fts5"` or
+  `"like"`) so callers can see which path served the query.
+
+### Changed
+- `memory_search` automatically falls back to the previous LIKE substring scan
+  when the SQLite build lacks the FTS5 module, preserving behavior everywhere.
+- Existing 0.1.x databases are backfilled into the FTS index on first open
+  after upgrade — no manual migration needed.
+
 ## [0.1.0] — 2026-05-23
 
 Initial release.
@@ -23,4 +40,5 @@ Initial release.
 - No telemetry, no phone-home.
 - All test scripts use ephemeral tmpdirs — no test ever touches the user's real DB.
 
+[0.2.0]: https://github.com/davidmosiah/delx-memory/releases/tag/v0.2.0
 [0.1.0]: https://github.com/davidmosiah/delx-memory/releases/tag/v0.1.0

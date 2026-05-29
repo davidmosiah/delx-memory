@@ -1,10 +1,12 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
+  buildFtsMatch,
   decodeTags,
   encodeTags,
   getDb,
   getDbSizeBytes,
+  isFtsReady,
   resolveDbPath,
   sweepExpired,
   tagLikePattern,
@@ -83,6 +85,81 @@ function scoreMatch(row: MemoryRow, q: string): number {
     from = i + ql.length;
   }
   return s;
+}
+
+interface SearchHit {
+  key: string;
+  score: number;
+  snippet: string;
+  updated_at: number;
+  tags: string[] | null;
+}
+
+/**
+ * FTS5-backed search with bm25 relevance ranking. The key column is weighted
+ * heaviest, then value, then tags. bm25() returns a NEGATIVE number where lower
+ * means more relevant, so we negate it into a positive descending score to
+ * keep the same response shape as the LIKE path. Returns null (not []) if the
+ * query produced no usable MATCH expression, so the caller can decide.
+ */
+function ftsSearch(
+  db: ReturnType<typeof getDb>,
+  query: string,
+  limit: number,
+): SearchHit[] | null {
+  const match = buildFtsMatch(query);
+  if (!match) return null;
+  const rows = db
+    .prepare<unknown[], MemoryRow & { rank: number }>(
+      `SELECT m.*, bm25(memory_fts, 5.0, 1.0, 2.0) AS rank
+       FROM memory_fts
+       JOIN memory m ON m.rowid = memory_fts.rowid
+       WHERE memory_fts MATCH ?
+       ORDER BY rank
+       LIMIT ?`,
+    )
+    .all(match, limit);
+  return rows.map((r) => ({
+    key: r.key,
+    // Negate bm25 (lower = better) into a positive descending score, rounded.
+    score: Math.round(-r.rank * 1000) / 1000,
+    snippet: snippetFor(r.value, query),
+    updated_at: r.updated_at,
+    tags: decodeTags(r.tags),
+  }));
+}
+
+/**
+ * Legacy LIKE substring scan. Used when FTS5 is unavailable in the SQLite
+ * build, or as a fallback if an FTS query unexpectedly errors.
+ */
+function likeSearch(
+  db: ReturnType<typeof getDb>,
+  query: string,
+  limit: number,
+): SearchHit[] {
+  const escaped = query.replace(/[\\%_]/g, "\\$&");
+  const pattern = `%${escaped}%`;
+  const rows = db
+    .prepare<unknown[], MemoryRow>(
+      `SELECT * FROM memory
+       WHERE key LIKE ? ESCAPE '\\' OR value LIKE ? ESCAPE '\\'
+       ORDER BY updated_at DESC
+       LIMIT ?`,
+    )
+    .all(pattern, pattern, Math.min(limit * 4, 400));
+  return rows
+    .map((r) => ({ row: r, score: scoreMatch(r, query) }))
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(({ row, score }) => ({
+      key: row.key,
+      score,
+      snippet: snippetFor(row.value, query),
+      updated_at: row.updated_at,
+      tags: decodeTags(row.tags),
+    }));
 }
 
 // ---------------------------------------------------------------------------
@@ -178,7 +255,7 @@ export function registerMemoryTools(server: McpServer): void {
     {
       title: "Keyword search across keys and values",
       description:
-        "Substring search across keys AND values. Returns top N by simple occurrence-count score, with a snippet. Case-insensitive. For v0.1 this is plain LIKE — FTS will come later.",
+        "Full-text search across keys, values AND tags. Uses an FTS5 index with bm25 relevance ranking (key-weighted), word-stemming, diacritic folding and prefix matching — so multi-word, partial and accent-insensitive queries all hit, ranked by relevance. Falls back to a LIKE substring scan if the SQLite build lacks FTS5. Returns top N matches with a snippet. Case-insensitive.",
       inputSchema: MemorySearchInputSchema.shape,
     },
     async (rawInput) => {
@@ -186,31 +263,28 @@ export function registerMemoryTools(server: McpServer): void {
         const input = MemorySearchInputSchema.parse(rawInput);
         sweepExpired();
         const db = getDb();
-        const escaped = input.query.replace(/[\\%_]/g, "\\$&");
-        const pattern = `%${escaped}%`;
-        const rows = db
-          .prepare<unknown[], MemoryRow>(
-            `SELECT * FROM memory
-             WHERE key LIKE ? ESCAPE '\\' OR value LIKE ? ESCAPE '\\'
-             ORDER BY updated_at DESC
-             LIMIT ?`,
-          )
-          .all(pattern, pattern, Math.min(input.limit * 4, 400));
-        const scored = rows
-          .map((r) => ({ row: r, score: scoreMatch(r, input.query) }))
-          .filter((s) => s.score > 0)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, input.limit);
+
+        let results: SearchHit[] | null = null;
+        let engine: "fts5" | "like" = "like";
+        if (isFtsReady()) {
+          try {
+            results = ftsSearch(db, input.query, input.limit);
+            if (results !== null) engine = "fts5";
+          } catch {
+            // FTS query failed unexpectedly — degrade to LIKE this call.
+            results = null;
+          }
+        }
+        if (results === null) {
+          results = likeSearch(db, input.query, input.limit);
+          engine = "like";
+        }
+
         return makeResponse({
           query: input.query,
-          count: scored.length,
-          results: scored.map(({ row, score }) => ({
-            key: row.key,
-            score,
-            snippet: snippetFor(row.value, input.query),
-            updated_at: row.updated_at,
-            tags: decodeTags(row.tags),
-          })),
+          engine,
+          count: results.length,
+          results,
         });
       } catch (err) {
         return makeError((err as Error).message);

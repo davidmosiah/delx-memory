@@ -14,7 +14,7 @@ Every chat client has its own ephemeral context. Quit the tab → preferences go
 - SQLite at `~/.delx-memory/db.sqlite` (0700 dir, 0600 file).
 - **Secret-blocking**: refuses to store credential-shaped keys or values.
 - TTL support (lazy expiry on read).
-- Tags + prefix filters + keyword search.
+- Tags + prefix filters + FTS5 full-text search (bm25 ranking, stemming, diacritic folding; LIKE fallback if FTS5 is unavailable).
 - Mutations require `explicit_user_intent: true` so over-eager agents can't silently rewrite your context.
 - Zero telemetry. Zero phone-home. The file is yours.
 
@@ -81,7 +81,7 @@ See [`examples/codex.toml`](./examples/codex.toml).
 | `memory_stats` | High-level: total keys, DB size, oldest entry, DB path. **Start here on any session.** |
 | `memory_list` | List keys (not values) with optional prefix or tag filter. |
 | `memory_get` | Exact key lookup. Returns value + timestamps + tags + metadata. |
-| `memory_search` | Substring search across keys and values, with snippets. |
+| `memory_search` | FTS5 full-text search across keys, values and tags — bm25 relevance ranking, stemming, diacritic folding, prefix matching; LIKE fallback if FTS5 is missing. Returns snippets. |
 
 ### Mutations (require `explicit_user_intent: true`)
 

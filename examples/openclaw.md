@@ -18,7 +18,7 @@ OpenClaw will expose the 8 tools through its gateway. The first time any lane ca
 
 ## Cross-lane continuity
 
-The whole point: lane `main` and lane `growth` see the same memory. Write a planning note from one, read it from the other. The shared SQLite file is the synchronization point.
+The whole point: every lane (and any other MCP client on the host) sees the same memory. Write a planning note from one lane, read it from another — or from Claude Desktop, Cursor, or Codex. The shared SQLite file is the synchronization point.
 
 ## Token economy note
 
