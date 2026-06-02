@@ -2,6 +2,11 @@
 
 All notable changes to `delx-memory` follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and adhere to [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] — 2026-06-02
+
+### Added
+- **Tool annotations on all 8 tools** (`readOnlyHint` / `destructiveHint` / `idempotentHint` / `openWorldHint`) so MCP agents (Claude, Goose, Cursor) can reason about each tool's safety before calling. `memory_get` / `memory_list` / `memory_search` / `memory_stats` are read-only + idempotent; `memory_forget` / `memory_forget_by_tag` are destructive; `memory_set` is a non-destructive idempotent upsert; `memory_export` is read-only (still gated by `explicit_user_intent`). Every tool is `openWorldHint: false` — the whole server is local SQLite and never touches the network. No behavior, schema, or gating change.
+
 ## [0.2.1] — 2026-05-29
 
 ### Added

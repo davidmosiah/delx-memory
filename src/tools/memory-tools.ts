@@ -177,6 +177,7 @@ export function registerMemoryTools(server: McpServer): void {
       description:
         "Exact key lookup. Returns the stored value plus timestamps, ttl, tags, metadata. Returns null if missing or expired.",
       inputSchema: MemoryGetInputSchema.shape,
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     },
     async (rawInput) => {
       try {
@@ -206,6 +207,7 @@ export function registerMemoryTools(server: McpServer): void {
       description:
         "List keys with optional prefix or tag filter. Returns keys + timestamps + tags only — call memory_get for values. Use this first on a new session to discover what is stored.",
       inputSchema: MemoryListInputSchema.shape,
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     },
     async (rawInput) => {
       try {
@@ -257,6 +259,7 @@ export function registerMemoryTools(server: McpServer): void {
       description:
         "Full-text search across keys, values AND tags. Uses an FTS5 index with bm25 relevance ranking (key-weighted), word-stemming, diacritic folding and prefix matching — so multi-word, partial and accent-insensitive queries all hit, ranked by relevance. Falls back to a LIKE substring scan if the SQLite build lacks FTS5. Returns top N matches with a snippet. Case-insensitive.",
       inputSchema: MemorySearchInputSchema.shape,
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     },
     async (rawInput) => {
       try {
@@ -302,6 +305,7 @@ export function registerMemoryTools(server: McpServer): void {
       description:
         "High-level stats about the local memory store. Safe to call first on every session to gauge whether the store is empty, small, or large.",
       inputSchema: MemoryStatsInputSchema.shape,
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     },
     async () => {
       try {
@@ -347,6 +351,7 @@ export function registerMemoryTools(server: McpServer): void {
       description:
         "Create or update a key in memory. Rejects credential-shaped keys or values. Requires explicit_user_intent: true. Returns whether the row was created or updated.",
       inputSchema: MemorySetInputSchema.shape,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async (rawInput) => {
       try {
@@ -426,6 +431,7 @@ export function registerMemoryTools(server: McpServer): void {
       description:
         "Delete a single key from memory. Idempotent: returns existed=false if the key was not present. Requires explicit_user_intent: true.",
       inputSchema: MemoryForgetInputSchema.shape,
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
     },
     async (rawInput) => {
       try {
@@ -453,6 +459,7 @@ export function registerMemoryTools(server: McpServer): void {
       description:
         "Delete every entry carrying the given tag. Returns deleted_count. Requires explicit_user_intent: true.",
       inputSchema: MemoryForgetByTagInputSchema.shape,
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
     },
     async (rawInput) => {
       try {
@@ -481,6 +488,7 @@ export function registerMemoryTools(server: McpServer): void {
       description:
         "Dump the memory store as JSON, JSONL, or Markdown. Optional since/until window on updated_at. Use for backup/inspection. Requires explicit_user_intent: true.",
       inputSchema: MemoryExportInputSchema.shape,
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     },
     async (rawInput) => {
       try {
