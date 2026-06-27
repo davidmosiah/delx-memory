@@ -47,6 +47,10 @@
   ],
   "author": "David Batista",
   "license": "MIT",
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/davidmosiah"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.21.0",
     "better-sqlite3": "^12.9.0",
