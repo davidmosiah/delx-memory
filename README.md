@@ -2,7 +2,13 @@
 
 > Local-first persistent memory MCP server. One shared SQLite store any MCP-speaking agent (Claude Desktop, Cursor, Hermes, OpenClaw, Codex) can read and write — so context survives across sessions AND across tools.
 
-![status: alpha](https://img.shields.io/badge/status-alpha-orange) ![license: MIT](https://img.shields.io/badge/license-MIT-blue) ![node: ≥20](https://img.shields.io/badge/node-%E2%89%A520-green)
+[![npm version](https://img.shields.io/npm/v/delx-memory)](https://www.npmjs.com/package/delx-memory)
+[![GitHub Release](https://img.shields.io/github/v/release/davidmosiah/delx-memory?label=release)](https://github.com/davidmosiah/delx-memory/releases/latest)
+[![npm downloads](https://img.shields.io/npm/dm/delx-memory)](https://www.npmjs.com/package/delx-memory)
+[![status: alpha](https://img.shields.io/badge/status-alpha-orange)](https://github.com/davidmosiah/delx-memory)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![node: >=20](https://img.shields.io/badge/node-%3E%3D20-green)](package.json)
+[![Verified Release Index](https://img.shields.io/badge/verified-release_index-0EA5A3)](https://github.com/davidmosiah/delx-wellness/blob/main/docs/release-index.md)
 
 ## Why
 
