@@ -84,6 +84,7 @@
   },
   "main": "dist/index.js",
   "overrides": {
-    "hono": "4.12.27"
+    "hono": "4.12.27",
+    "esbuild": "0.28.1"
   }
 }
