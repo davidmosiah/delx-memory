@@ -82,5 +82,8 @@
   "publishConfig": {
     "access": "public"
   },
-  "main": "dist/index.js"
+  "main": "dist/index.js",
+  "overrides": {
+    "hono": "4.12.27"
+  }
 }
