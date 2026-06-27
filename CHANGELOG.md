@@ -2,6 +2,11 @@
 
 All notable changes to `delx-memory` follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and adhere to [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] — 2026-06-27
+
+### Security
+- Pin transitive `hono` resolution to `4.12.27` via npm overrides, resolving production audit advisories while keeping the public MCP API unchanged.
+
 ## [0.2.2] — 2026-06-02
 
 ### Added
@@ -54,6 +59,8 @@ Initial release.
 - No telemetry, no phone-home.
 - All test scripts use ephemeral tmpdirs — no test ever touches the user's real DB.
 
+[0.2.3]: https://github.com/davidmosiah/delx-memory/releases/tag/v0.2.3
+[0.2.2]: https://github.com/davidmosiah/delx-memory/releases/tag/v0.2.2
 [0.2.1]: https://github.com/davidmosiah/delx-memory/releases/tag/v0.2.1
 [0.2.0]: https://github.com/davidmosiah/delx-memory/releases/tag/v0.2.0
 [0.1.0]: https://github.com/davidmosiah/delx-memory/releases/tag/v0.1.0
