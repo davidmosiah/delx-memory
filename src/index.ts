@@ -1,9 +1,6 @@
 #!/usr/bin/env node
-import cors from "cors";
-import express from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { SERVER_NAME, SERVER_VERSION } from "./constants.js";
 import { runCliCommand } from "./cli/commands.js";
 import { registerMemoryResources } from "./resources/memory-resources.js";
@@ -16,8 +13,15 @@ function createServer(): McpServer {
     version: SERVER_VERSION,
   });
   registerMemoryTools(server);
-  registerMemoryPrompts(server);
-  registerMemoryResources(server);
+  // Lean profile: tools-only (skip prompts/resources) for smaller surface when requested.
+  const lean =
+    process.env.DELX_MEMORY_LEAN === "1" ||
+    process.env.DELX_MEMORY_LEAN === "true" ||
+    process.argv.includes("--lean");
+  if (!lean) {
+    registerMemoryPrompts(server);
+    registerMemoryResources(server);
+  }
   return server;
 }
 
@@ -25,47 +29,6 @@ async function runStdio(): Promise<void> {
   const server = createServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-}
-
-async function runHttp(): Promise<void> {
-  const app = express();
-  const host = process.env.DELX_MEMORY_HOST ?? "127.0.0.1";
-  const port = Number(process.env.DELX_MEMORY_PORT ?? 3030);
-  const allowedOrigin = process.env.DELX_MEMORY_ALLOWED_ORIGIN ?? `http://${host}:${port}`;
-
-  app.use(express.json({ limit: "1mb" }));
-  app.use(cors({ origin: allowedOrigin }));
-
-  app.get("/health", (_req, res) => {
-    res.json({ ok: true, name: SERVER_NAME, version: SERVER_VERSION });
-  });
-
-  app.post("/mcp", async (req, res) => {
-    const server = createServer();
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: undefined,
-      enableJsonResponse: true,
-    });
-    res.on("close", () => {
-      transport.close().catch(() => undefined);
-      server.close().catch(() => undefined);
-    });
-    try {
-      await server.connect(transport);
-      await transport.handleRequest(req, res, req.body);
-    } catch (error) {
-      console.error("MCP HTTP request failed:", error);
-      if (!res.headersSent) {
-        res
-          .status(500)
-          .json({ jsonrpc: "2.0", error: { code: -32603, message: "Internal server error" }, id: null });
-      }
-    }
-  });
-
-  app.listen(port, host, () => {
-    console.error(`${SERVER_NAME} HTTP transport listening on http://${host}:${port}/mcp`);
-  });
 }
 
 const args = new Set(process.argv.slice(2));
@@ -83,7 +46,9 @@ if (cliResult !== undefined) {
 } else if (process.exitCode === undefined) {
   const transport = process.env.DELX_MEMORY_TRANSPORT ?? (args.has("--http") ? "http" : "stdio");
   if (transport === "http") {
-    await runHttp();
+    // Dynamic import so stdio boot does not load express/cors.
+    const { runHttp } = await import("./http-server.js");
+    await runHttp(createServer);
   } else {
     await runStdio();
   }

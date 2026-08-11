@@ -24,6 +24,14 @@ Every chat client has its own ephemeral context. Quit the tab → preferences go
 - Mutations require `explicit_user_intent: true` so over-eager agents can't silently rewrite your context.
 - Zero telemetry. Zero phone-home. The file is yours.
 
+### Footprint / lightweight mode
+
+- Default transport is **stdio** (no HTTP stack loaded).
+- Optional HTTP: `delx-memory --http` (Express loads only then).
+- Tools-only lean surface: `DELX_MEMORY_LEAN=1` or `delx-memory --lean` (skips MCP prompts/resources).
+- `doctor --json` reports `rss_kb` for local measurement. Dominant cost is Node + native `better-sqlite3`, not embeddings (there are none).
+
+
 ---
 
 ## Install + run

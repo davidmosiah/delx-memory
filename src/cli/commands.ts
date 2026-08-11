@@ -2,6 +2,17 @@ import { existsSync, statSync } from "node:fs";
 import { SERVER_NAME, SERVER_VERSION, PINNED_NPM_PACKAGE } from "../constants.js";
 import { resolveDbPath, getDbSizeBytes, getDb, sweepExpired } from "../services/db.js";
 
+/** Best-effort resident set size in KiB (macOS/Linux). */
+function processRssKb(): number | null {
+  try {
+    // Node provides memoryUsage().rss in bytes
+    return Math.round(process.memoryUsage().rss / 1024);
+  } catch {
+    return null;
+  }
+}
+
+
 export async function runCliCommand(args: string[]): Promise<number | undefined> {
   const [command, ...rest] = args;
   if (!command || command === "--http") return undefined;
@@ -95,10 +106,17 @@ async function runDoctor(args: string[]): Promise<number> {
     }
   }
   const ok = checks.node_supported && checks.db_writable && checks.permissions_ok;
+  const lean =
+    process.env.DELX_MEMORY_LEAN === "1" ||
+    process.env.DELX_MEMORY_LEAN === "true";
   const result = {
     ok,
     server: SERVER_NAME,
     version: SERVER_VERSION,
+    lean_mode: lean,
+    rss_kb: processRssKb(),
+    note_footprint:
+      "Default path is already SQLite+FTS (no embeddings). HTTP/Express loads only with --http. Set DELX_MEMORY_LEAN=1 for tools-only (skip prompts/resources).",
     npm_package: PINNED_NPM_PACKAGE,
     checks,
     next_steps: ok

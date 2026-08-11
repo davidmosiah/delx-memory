@@ -13,6 +13,13 @@
 
 # Changelog
 
+## 0.2.6
+
+- **Lean path (issue #7):** HTTP transport is a dynamic import (`--http` only); default stdio no longer loads Express/CORS at boot.
+- `DELX_MEMORY_LEAN=1` / `--lean` registers tools only (skips prompts/resources).
+- `doctor` reports `rss_kb` + lean flag and footprint note.
+
+
 All notable changes to `delx-memory` follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and adhere to [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.3] — 2026-06-27
