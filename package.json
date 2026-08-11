@@ -1,6 +1,6 @@
 {
   "name": "delx-memory",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "Local-first persistent memory MCP server. Shared SQLite store for Claude Desktop, Cursor, Hermes, OpenClaw, Codex.",
   "type": "module",
   "bin": {
@@ -84,8 +84,8 @@
   },
   "main": "dist/index.js",
   "overrides": {
-    "hono": "4.12.27",
+    "hono": "4.13.1",
     "esbuild": "0.28.1",
-    "@hono/node-server": "2.0.12"
+    "@hono/node-server": "2.1.0"
   }
 }

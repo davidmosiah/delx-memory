@@ -13,6 +13,12 @@
 
 # Changelog
 
+## 0.2.7
+
+- Security: bump transitive `hono` override to **4.13.1** (was pinned at 4.12.27, which still had moderate CORS/memo advisories via MCP SDK).
+- `npm audit` production path re-verified clean of high/critical; moderate hono chain cleared.
+
+
 ## 0.2.6
 
 - **Lean path (issue #7):** HTTP transport is a dynamic import (`--http` only); default stdio no longer loads Express/CORS at boot.
