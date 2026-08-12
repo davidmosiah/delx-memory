@@ -258,4 +258,4 @@ See [`AGENTS.md`](./AGENTS.md) for repo conventions, [`SECURITY.md`](./SECURITY.
 
 ## License
 
-MIT © 2026 David Batista
+MIT © 2026 David Batista. [Code of Conduct](CODE_OF_CONDUCT.md).
