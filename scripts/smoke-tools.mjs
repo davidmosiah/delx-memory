@@ -26,7 +26,7 @@ const dbPath = join(workDir, "db.sqlite");
 const client = new Client({ name: "delx-memory-smoke", version: "0.0.0" });
 const transport = new StdioClientTransport({
   command: "node",
-  args: ["dist/index.js"],
+  args: ["dist/index.js", "--sdk"],
   env: {
     ...process.env,
     DELX_MEMORY_PATH: dbPath,

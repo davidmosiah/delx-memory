@@ -7,9 +7,7 @@ import { SERVER_NAME, SERVER_VERSION } from "./constants.js";
 export type CreateServerFn = () => McpServer;
 
 /**
- * HTTP transport is optional and only loaded when --http / DELX_MEMORY_TRANSPORT=http.
- * Keeping this module separate lets the default stdio path avoid paying for Express/CORS
- * at process start (see issue #7 lightweight discussion).
+ * HTTP transport only loaded when --http / DELX_MEMORY_TRANSPORT=http.
  */
 export async function runHttp(createServer: CreateServerFn): Promise<void> {
   const app = express();

@@ -1,5 +1,5 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import type { ToolServerFacade } from "../tool-registry.js";
 import {
   buildFtsMatch,
   decodeTags,
@@ -187,7 +187,7 @@ function likeSearch(
 // tool registrations
 // ---------------------------------------------------------------------------
 
-export function registerMemoryTools(server: McpServer): void {
+export function registerMemoryTools(server: ToolServerFacade): void {
   server.registerTool(
     "memory_agent_manifest",
     {

@@ -13,6 +13,17 @@
 
 # Changelog
 
+## 0.3.0
+
+- **Lite stdio transport (default):** newline JSON-RPC tools path that does **not** load `@modelcontextprotocol/sdk` at boot (`--lite` / `DELX_MEMORY_TRANSPORT=lite`).
+- **SDK path:** `--sdk` / `DELX_MEMORY_TRANSPORT=sdk` for full prompts + resources (previous default surface).
+- Tool catalog extracted behind a facade so lite and SDK share the same handlers.
+- Smoke: full suite on `--sdk`; new `smoke:lite` for the minimal path.
+- Measured idle RSS after init (this machine): lite ~**53 MB**, sdk ~**66 MB** (was ~76 MB before 0.2.6 lean work).
+
+Thanks @illegal-xd for the transport-level footprint measurements that drove this split.
+
+
 ## 0.2.7
 
 - Security: bump transitive `hono` override to **4.13.1** (was pinned at 4.12.27, which still had moderate CORS/memo advisories via MCP SDK).

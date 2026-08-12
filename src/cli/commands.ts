@@ -114,6 +114,12 @@ async function runDoctor(args: string[]): Promise<number> {
     server: SERVER_NAME,
     version: SERVER_VERSION,
     lean_mode: lean,
+    transport_default: "lite",
+    transports: {
+      lite: "tools-only stdio without MCP SDK (default)",
+      sdk: "full MCP SDK stdio with prompts/resources",
+      http: "Streamable HTTP on 127.0.0.1 (loads Express + SDK)",
+    },
     rss_kb: processRssKb(),
     note_footprint:
       "Default path is already SQLite+FTS (no embeddings). HTTP/Express loads only with --http. Set DELX_MEMORY_LEAN=1 for tools-only (skip prompts/resources).",

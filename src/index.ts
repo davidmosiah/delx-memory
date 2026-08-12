@@ -1,35 +1,6 @@
 #!/usr/bin/env node
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { SERVER_NAME, SERVER_VERSION } from "./constants.js";
 import { runCliCommand } from "./cli/commands.js";
-import { registerMemoryResources } from "./resources/memory-resources.js";
-import { registerMemoryPrompts } from "./prompts/memory-prompts.js";
-import { registerMemoryTools } from "./tools/memory-tools.js";
-
-function createServer(): McpServer {
-  const server = new McpServer({
-    name: SERVER_NAME,
-    version: SERVER_VERSION,
-  });
-  registerMemoryTools(server);
-  // Lean profile: tools-only (skip prompts/resources) for smaller surface when requested.
-  const lean =
-    process.env.DELX_MEMORY_LEAN === "1" ||
-    process.env.DELX_MEMORY_LEAN === "true" ||
-    process.argv.includes("--lean");
-  if (!lean) {
-    registerMemoryPrompts(server);
-    registerMemoryResources(server);
-  }
-  return server;
-}
-
-async function runStdio(): Promise<void> {
-  const server = createServer();
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-}
 
 const args = new Set(process.argv.slice(2));
 let cliResult: number | undefined;
@@ -41,15 +12,33 @@ try {
   process.exitCode = 1;
 }
 
+function resolveTransport(): "lite" | "sdk" | "http" {
+  if (args.has("--http") || process.env.DELX_MEMORY_TRANSPORT === "http") return "http";
+  if (args.has("--sdk") || process.env.DELX_MEMORY_TRANSPORT === "sdk") return "sdk";
+  if (args.has("--lite") || process.env.DELX_MEMORY_TRANSPORT === "lite") return "lite";
+  // Default: lite stdio (tools-only, no MCP SDK load) — lowest RSS for always-on agents.
+  // Full prompts/resources: DELX_MEMORY_TRANSPORT=sdk or --sdk.
+  const env = process.env.DELX_MEMORY_TRANSPORT;
+  if (env === "stdio") return "lite"; // stdio alias → lite
+  return "lite";
+}
+
 if (cliResult !== undefined) {
   process.exitCode = cliResult;
 } else if (process.exitCode === undefined) {
-  const transport = process.env.DELX_MEMORY_TRANSPORT ?? (args.has("--http") ? "http" : "stdio");
-  if (transport === "http") {
-    // Dynamic import so stdio boot does not load express/cors.
+  const mode = resolveTransport();
+  if (mode === "http") {
+    const { createSdkServer } = await import("./sdk-stdio.js");
     const { runHttp } = await import("./http-server.js");
-    await runHttp(createServer);
+    await runHttp(() => createSdkServer());
+  } else if (mode === "sdk") {
+    const { runSdkStdio } = await import("./sdk-stdio.js");
+    await runSdkStdio();
   } else {
-    await runStdio();
+    const { runLiteStdio } = await import("./lite-stdio.js");
+    await runLiteStdio();
   }
 }
+
+void SERVER_NAME;
+void SERVER_VERSION;

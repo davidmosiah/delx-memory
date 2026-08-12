@@ -26,13 +26,14 @@ Every chat client has its own ephemeral context. Quit the tab → preferences go
 
 ### Footprint / lightweight mode
 
-- Default transport is **stdio** (no HTTP stack loaded).
-- Optional HTTP: `delx-memory --http` (Express loads only then).
-- Tools-only lean surface: `DELX_MEMORY_LEAN=1` or `delx-memory --lean` (skips MCP prompts/resources).
-- `doctor --json` reports `rss_kb` for local measurement. Dominant cost is Node + native `better-sqlite3`, not embeddings (there are none).
+- **Default transport is `lite`**: tools-only MCP over stdio **without loading the MCP SDK** (biggest RSS win for always-on agents).
+- Full SDK surface (prompts + resources): `delx-memory --sdk` or `DELX_MEMORY_TRANSPORT=sdk`.
+- Optional HTTP: `delx-memory --http` (Express + SDK; still loopback by default).
+- `DELX_MEMORY_LEAN=1` applies to the **SDK** path only (skip prompts/resources).
+- `doctor --json` reports `rss_kb`. Dominant remaining cost is Node + native `better-sqlite3` (no embeddings).
 
+Community measurements (custom transport vs SDK) pointed at the SDK tree as the main overhead — see issue #7.
 
----
 
 ## Install + run
 
