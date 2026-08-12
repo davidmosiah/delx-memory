@@ -3,11 +3,15 @@ import type { ToolServerFacade } from "../tool-registry.js";
 import {
   buildFtsMatch,
   decodeTags,
+  displayKey,
   encodeTags,
   getDb,
   getDbSizeBytes,
   isFtsReady,
+  namespacedKey,
+  namespacePrefixPattern,
   resolveDbPath,
+  resolveNamespace,
   sweepExpired,
   tagLikePattern,
   type MemoryRow,
@@ -23,8 +27,11 @@ import {
   MemoryForgetByTagInputSchema,
   MemoryForgetInputSchema,
   MemoryGetInputSchema,
+  MemoryGetManyInputSchema,
+  MemoryHandoffInputSchema,
   MemoryListInputSchema,
   MemorySearchInputSchema,
+  MemorySetBatchInputSchema,
   MemorySetInputSchema,
   MemoryStatsInputSchema,
 } from "../schemas/common.js";
@@ -299,15 +306,40 @@ export function registerMemoryTools(server: ToolServerFacade): void {
       try {
         const input = MemoryGetInputSchema.parse(rawInput);
         const privacy = input.privacy_mode ?? "structured";
+        const storeKey = namespacedKey(input.key);
         sweepExpired();
         const db = getDb();
         const row = db
           .prepare<unknown[], MemoryRow>("SELECT * FROM memory WHERE key = ?")
-          .get(input.key);
+          .get(storeKey);
         if (!row) {
-          return makeResponse({ key: input.key, found: false, value: null, privacy_mode: privacy });
+          return makeResponse({
+            key: input.key,
+            found: false,
+            value: null,
+            privacy_mode: privacy,
+            namespace: resolveNamespace(),
+          });
         }
-        return makeResponse({ found: true, privacy_mode: privacy, ...rowToPayload(row, privacy) });
+        if (row.ttl_expires_at && row.ttl_expires_at <= Date.now()) {
+          db.prepare("DELETE FROM memory WHERE key = ?").run(storeKey);
+          return makeResponse({
+            key: input.key,
+            found: false,
+            expired: true,
+            value: null,
+            privacy_mode: privacy,
+            namespace: resolveNamespace(),
+          });
+        }
+        const payload = rowToPayload(row, privacy);
+        return makeResponse({
+          found: true,
+          privacy_mode: privacy,
+          namespace: resolveNamespace(),
+          ...payload,
+          key: displayKey(row.key),
+        });
       } catch (err) {
         return makeError((err as Error).message);
       }
@@ -322,7 +354,7 @@ export function registerMemoryTools(server: ToolServerFacade): void {
     {
       title: "List memory keys (not values)",
       description:
-        "List keys with optional prefix or tag filter. Returns keys + timestamps + tags only — call memory_get for values. Use this first on a new session to discover what is stored. Optional privacy_mode for agent-surface parity (list is already key-only).",
+        "List keys with optional prefix, tag, or since (updated_at) filter. Returns keys + timestamps + tags only — call memory_get for values. Scoped by DELX_MEMORY_NAMESPACE when set.",
       inputSchema: MemoryListInputSchema.shape,
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     },
@@ -334,28 +366,43 @@ export function registerMemoryTools(server: ToolServerFacade): void {
         const db = getDb();
         const clauses: string[] = [];
         const params: unknown[] = [];
+        // Namespace isolation: always constrain to ns:: when configured
         if (input.prefix) {
           clauses.push(`key LIKE ? ESCAPE '\\'`);
-          params.push(input.prefix.replace(/[\\%_]/g, "\\$&") + "%");
+          params.push(namespacedKey(input.prefix).replace(/[\\%_]/g, "\\$&") + "%");
+        } else {
+          const nsPat = namespacePrefixPattern();
+          if (nsPat) {
+            clauses.push(`key LIKE ? ESCAPE '\\'`);
+            params.push(nsPat);
+          }
         }
         if (input.tag) {
           clauses.push(`tags LIKE ? ESCAPE '\\'`);
           params.push(tagLikePattern(input.tag));
         }
+        if (input.since != null) {
+          clauses.push(`updated_at >= ?`);
+          params.push(input.since);
+        }
         const where = clauses.length ? "WHERE " + clauses.join(" AND ") : "";
         const sql = `SELECT key, created_at, updated_at, ttl_expires_at, tags FROM memory ${where} ORDER BY updated_at DESC LIMIT ?`;
         params.push(input.limit);
-        const rows = db.prepare<unknown[], Pick<MemoryRow, "key" | "created_at" | "updated_at" | "ttl_expires_at" | "tags">>(sql).all(...params);
+        const rows = db
+          .prepare<unknown[], Pick<MemoryRow, "key" | "created_at" | "updated_at" | "ttl_expires_at" | "tags">>(sql)
+          .all(...params);
         return makeResponse({
           count: rows.length,
           privacy_mode: privacy,
+          namespace: resolveNamespace(),
           filters: {
             prefix: input.prefix ?? null,
             tag: input.tag ?? null,
+            since: input.since ?? null,
             limit: input.limit,
           },
           keys: rows.map((r) => ({
-            key: r.key,
+            key: displayKey(r.key),
             created_at: r.created_at,
             updated_at: r.updated_at,
             ttl_expires_at: r.ttl_expires_at,
@@ -368,7 +415,6 @@ export function registerMemoryTools(server: ToolServerFacade): void {
     },
   );
 
-  // -------------------------------------------------------------------------
   // memory_search — keyword across key + value
   // -------------------------------------------------------------------------
   server.registerTool(
@@ -403,6 +449,16 @@ export function registerMemoryTools(server: ToolServerFacade): void {
           engine = "like";
         }
 
+        // Namespace scope (post-filter — FTS may match other agents' keys)
+        const ns = resolveNamespace();
+        if (ns) {
+          const prefix = `${ns}::`;
+          results = results.filter((r) => r.key.startsWith(prefix)).map((r) => ({
+            ...r,
+            key: displayKey(r.key),
+          }));
+        }
+
         const shaped =
           privacy === "summary"
             ? results.map(({ key, score, updated_at, tags }) => ({
@@ -418,6 +474,7 @@ export function registerMemoryTools(server: ToolServerFacade): void {
           query: input.query,
           engine,
           privacy_mode: privacy,
+          namespace: resolveNamespace(),
           count: shaped.length,
           results: shaped,
         });
@@ -488,6 +545,7 @@ export function registerMemoryTools(server: ToolServerFacade): void {
     async (rawInput) => {
       try {
         const input = MemorySetInputSchema.parse(rawInput);
+        const storeKey = namespacedKey(input.key);
 
         // Key check — credential-shaped names are refused.
         assertKeyNotSecret(input.key);
@@ -520,14 +578,15 @@ export function registerMemoryTools(server: ToolServerFacade): void {
           .prepare<unknown[], { created_at: number }>(
             "SELECT created_at FROM memory WHERE key = ?",
           )
-          .get(input.key);
+          .get(storeKey);
 
         if (existing) {
           db.prepare(
             `UPDATE memory SET value = ?, updated_at = ?, ttl_expires_at = ?, tags = ?, metadata = ? WHERE key = ?`,
-          ).run(serialized, now, ttlAt, tagsBlob, metadataBlob, input.key);
+          ).run(serialized, now, ttlAt, tagsBlob, metadataBlob, storeKey);
           return makeResponse({
             key: input.key,
+            namespace: resolveNamespace(),
             action: "updated",
             created_at: existing.created_at,
             updated_at: now,
@@ -538,7 +597,7 @@ export function registerMemoryTools(server: ToolServerFacade): void {
         db.prepare(
           `INSERT INTO memory (key, value, created_at, updated_at, ttl_expires_at, tags, metadata)
            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        ).run(input.key, serialized, now, now, ttlAt, tagsBlob, metadataBlob);
+        ).run(storeKey, serialized, now, now, ttlAt, tagsBlob, metadataBlob);
         return makeResponse({
           key: input.key,
           action: "created",
@@ -568,10 +627,12 @@ export function registerMemoryTools(server: ToolServerFacade): void {
     async (rawInput) => {
       try {
         const input = MemoryForgetInputSchema.parse(rawInput);
+        const storeKey = namespacedKey(input.key);
         const db = getDb();
-        const info = db.prepare("DELETE FROM memory WHERE key = ?").run(input.key);
+        const info = db.prepare("DELETE FROM memory WHERE key = ?").run(storeKey);
         return makeResponse({
           key: input.key,
+          namespace: resolveNamespace(),
           existed: info.changes > 0,
           deleted: info.changes,
         });
@@ -692,15 +753,188 @@ export function registerMemoryTools(server: ToolServerFacade): void {
       }
     },
   );
+
+  // -------------------------------------------------------------------------
+  // memory_get_many
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "memory_get_many",
+    {
+      title: "Get many memory entries by key",
+      description: "Batch exact-key lookup (max 50). Missing keys omitted. Respects DELX_MEMORY_NAMESPACE.",
+      inputSchema: MemoryGetManyInputSchema.shape,
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async (rawInput) => {
+      try {
+        const input = MemoryGetManyInputSchema.parse(rawInput);
+        const privacy = input.privacy_mode ?? "structured";
+        sweepExpired();
+        const db = getDb();
+        const entries = [];
+        for (const key of input.keys) {
+          const storeKey = namespacedKey(key);
+          const row = db.prepare<unknown[], MemoryRow>("SELECT * FROM memory WHERE key = ?").get(storeKey);
+          if (!row) continue;
+          if (row.ttl_expires_at && row.ttl_expires_at <= Date.now()) {
+            db.prepare("DELETE FROM memory WHERE key = ?").run(storeKey);
+            continue;
+          }
+          const payload = rowToPayload(row, privacy);
+          entries.push({ ...payload, key: displayKey(row.key) });
+        }
+        return makeResponse({
+          requested: input.keys.length,
+          found: entries.length,
+          privacy_mode: privacy,
+          namespace: resolveNamespace(),
+          entries,
+        });
+      } catch (err) {
+        return makeError((err as Error).message);
+      }
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // memory_set_batch
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "memory_set_batch",
+    {
+      title: "Atomic multi-entry upsert (requires explicit_user_intent)",
+      description:
+        "Upsert up to 50 entries in one SQLite transaction. One explicit_user_intent covers the batch. Rejects secret-shaped keys/values. Namespace-aware.",
+      inputSchema: MemorySetBatchInputSchema.shape,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async (rawInput) => {
+      try {
+        const input = MemorySetBatchInputSchema.parse(rawInput);
+        const db = getDb();
+        const now = Date.now();
+        const results: Array<Record<string, unknown>> = [];
+        const tx = db.transaction(() => {
+          for (const entry of input.entries) {
+            assertKeyNotSecret(entry.key);
+            assertValueNotSecret(entry.value);
+            if (entry.tags) entry.tags.forEach((tg) => assertKeyNotSecret(tg));
+            if (entry.metadata) assertValueNotSecret(entry.metadata);
+            const serialized = JSON.stringify(entry.value ?? null);
+            const byteLen = Buffer.byteLength(serialized, "utf8");
+            if (byteLen > MAX_VALUE_BYTES) {
+              throw new Error(`Value too large for key ${entry.key}: ${byteLen} bytes`);
+            }
+            const storeKey = namespacedKey(entry.key);
+            const metadataBlob = entry.metadata ? JSON.stringify(entry.metadata) : null;
+            const tagsBlob = encodeTags(entry.tags ?? null);
+            const ttlAt = entry.ttl_seconds ? now + entry.ttl_seconds * 1000 : null;
+            const existing = db
+              .prepare<unknown[], { created_at: number }>("SELECT created_at FROM memory WHERE key = ?")
+              .get(storeKey);
+            if (existing) {
+              db.prepare(
+                `UPDATE memory SET value = ?, updated_at = ?, ttl_expires_at = ?, tags = ?, metadata = ? WHERE key = ?`,
+              ).run(serialized, now, ttlAt, tagsBlob, metadataBlob, storeKey);
+              results.push({ key: entry.key, action: "updated", bytes: byteLen });
+            } else {
+              db.prepare(
+                `INSERT INTO memory (key, value, created_at, updated_at, ttl_expires_at, tags, metadata)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              ).run(storeKey, serialized, now, now, ttlAt, tagsBlob, metadataBlob);
+              results.push({ key: entry.key, action: "created", bytes: byteLen });
+            }
+          }
+        });
+        tx();
+        return makeResponse({
+          ok: true,
+          count: results.length,
+          namespace: resolveNamespace(),
+          results,
+        });
+      } catch (err) {
+        return makeError((err as Error).message);
+      }
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // memory_handoff — session resume brief
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "memory_handoff",
+    {
+      title: "Compact handoff brief for the next agent/session",
+      description:
+        "Returns store stats + the most recently updated keys (optional values). Designed for session start: one call instead of stats+list+get fan-out. Namespace-aware.",
+      inputSchema: MemoryHandoffInputSchema.shape,
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async (rawInput) => {
+      try {
+        const input = MemoryHandoffInputSchema.parse(rawInput);
+        sweepExpired();
+        const db = getDb();
+        const clauses: string[] = [];
+        const params: unknown[] = [];
+        const nsPat = namespacePrefixPattern();
+        if (nsPat) {
+          clauses.push(`key LIKE ? ESCAPE '\\'`);
+          params.push(nsPat);
+        }
+        const where = clauses.length ? "WHERE " + clauses.join(" AND ") : "";
+        const countRow = db
+          .prepare<unknown[], { total: number }>(`SELECT COUNT(*) AS total FROM memory ${where}`)
+          .get(...params);
+        const sql = `SELECT * FROM memory ${where} ORDER BY updated_at DESC LIMIT ?`;
+        const rows = db.prepare<unknown[], MemoryRow>(sql).all(...params, input.limit);
+        const recent = rows.map((row) => {
+          if (input.include_values) {
+            const payload = rowToPayload(row, "structured");
+            return { ...payload, key: displayKey(row.key) };
+          }
+          return {
+            key: displayKey(row.key),
+            updated_at: row.updated_at,
+            created_at: row.created_at,
+            tags: decodeTags(row.tags),
+            ttl_expires_at: row.ttl_expires_at,
+          };
+        });
+        return makeResponse({
+          ok: true,
+          namespace: resolveNamespace(),
+          total_keys: countRow?.total ?? 0,
+          total_size_bytes: getDbSizeBytes(),
+          db_path: resolveDbPath(),
+          transport_hint: "lite default; use --sdk for prompts/resources",
+          recent,
+          agent_instructions: [
+            "Call memory_handoff (or memory_stats + memory_list) at session start.",
+            "Only mutate with explicit_user_intent: true when the user asks.",
+            "Never store secrets/tokens/passwords.",
+          ],
+        });
+      } catch (err) {
+        return makeError((err as Error).message);
+      }
+    },
+  );
+
+
 }
 
 // Re-exported for tests / introspection.
 export const REGISTERED_TOOL_NAMES = [
   "memory_get",
+  "memory_get_many",
   "memory_list",
   "memory_search",
   "memory_stats",
+  "memory_handoff",
   "memory_set",
+  "memory_set_batch",
   "memory_forget",
   "memory_forget_by_tag",
   "memory_export",

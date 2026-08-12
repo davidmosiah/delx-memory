@@ -23,6 +23,43 @@ export function resolveDbPath(): string {
   return process.env.DELX_MEMORY_PATH ?? DEFAULT_DB_PATH;
 }
 
+/**
+ * Optional multi-agent isolation. When DELX_MEMORY_NAMESPACE is set, all keys
+ * are stored as `${namespace}::${key}` and list/search are scoped to that prefix.
+ * Empty/unset = global store (default, backward compatible).
+ */
+export function resolveNamespace(): string | null {
+  const raw = (process.env.DELX_MEMORY_NAMESPACE ?? "").trim();
+  if (!raw) return null;
+  // forbid separators that break our prefix scheme
+  if (raw.includes("::") || /[\x00-\x1f]/.test(raw)) {
+    throw new Error("DELX_MEMORY_NAMESPACE must not contain '::' or control characters");
+  }
+  if (raw.length > 64) throw new Error("DELX_MEMORY_NAMESPACE max 64 chars");
+  return raw;
+}
+
+export function namespacedKey(key: string): string {
+  const ns = resolveNamespace();
+  return ns ? `${ns}::${key}` : key;
+}
+
+export function displayKey(storedKey: string): string {
+  const ns = resolveNamespace();
+  if (!ns) return storedKey;
+  const prefix = `${ns}::`;
+  return storedKey.startsWith(prefix) ? storedKey.slice(prefix.length) : storedKey;
+}
+
+export function namespacePrefixPattern(): string | null {
+  const ns = resolveNamespace();
+  if (!ns) return null;
+  // escape LIKE wildcards in namespace itself
+  const escaped = ns.replace(/[\\%_]/g, "\\$&");
+  return `${escaped}::%`;
+}
+
+
 function ensureParentDirSecure(path: string): void {
   const dir = dirname(path);
   if (!existsSync(dir)) {
@@ -69,6 +106,7 @@ export function getDb(): Database.Database {
   db.pragma("journal_mode = WAL");
   db.pragma("synchronous = NORMAL");
   db.pragma("foreign_keys = ON");
+  db.pragma("busy_timeout = 5000"); // multi-agent concurrent writers
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS memory (

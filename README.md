@@ -5,7 +5,7 @@
 [![npm version](https://img.shields.io/npm/v/delx-memory)](https://www.npmjs.com/package/delx-memory)
 [![GitHub Release](https://img.shields.io/github/v/release/davidmosiah/delx-memory?label=release)](https://github.com/davidmosiah/delx-memory/releases/latest)
 [![npm downloads](https://img.shields.io/npm/dm/delx-memory)](https://www.npmjs.com/package/delx-memory)
-[![status: alpha](https://img.shields.io/badge/status-alpha-orange)](https://github.com/davidmosiah/delx-memory)
+[![status: beta](https://img.shields.io/badge/status-beta-0EA5A3)](https://github.com/davidmosiah/delx-memory)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![node: >=20](https://img.shields.io/badge/node-%3E%3D20-green)](package.json)
 [![Verified Release Index](https://img.shields.io/badge/verified-release_index-0EA5A3)](https://github.com/davidmosiah/delx-wellness/blob/main/docs/release-index.md)
@@ -16,13 +16,25 @@ Every chat client has its own ephemeral context. Quit the tab → preferences go
 
 `delx-memory` is a tiny MCP server that exposes a single shared SQLite file as a key/value memory layer. Any client that speaks MCP can read and write the same memory file → real continuity, real cross-tool context.
 
-- 8 MCP tools — 4 read-only, 4 mutating.
+- **15 tools** — discovery + handoff + batch ops + FTS5 search + mutations gated by intent.
 - SQLite at `~/.delx-memory/db.sqlite` (0700 dir, 0600 file).
 - **Secret-blocking**: refuses to store credential-shaped keys or values.
 - TTL support (lazy expiry on read).
 - Tags + prefix filters + FTS5 full-text search (bm25 ranking, stemming, diacritic folding; LIKE fallback if FTS5 is unavailable).
 - Mutations require `explicit_user_intent: true` so over-eager agents can't silently rewrite your context.
 - Zero telemetry. Zero phone-home. The file is yours.
+
+### Multi-agent namespaces
+
+```bash
+# Agent A
+DELX_MEMORY_NAMESPACE=claude npx -y delx-memory
+
+# Agent B (same machine, isolated keys)
+DELX_MEMORY_NAMESPACE=cursor npx -y delx-memory
+```
+
+Keys are stored as `namespace::key`. Omit the env var for a single global store (default).
 
 ### Footprint / lightweight mode
 
@@ -87,25 +99,47 @@ See [`examples/codex.toml`](./examples/codex.toml).
 
 ---
 
-## The 8 tools
+## What makes it different (honest)
 
-### Reads (always safe — call without confirmation)
+| | delx-memory | Typical cloud memory | Graph memory MCP |
+|---|---|---|---|
+| Data leaves your machine | **No** | Yes | Usually no |
+| Multi-client same store | **Yes** (one SQLite) | Account-bound | Process-local |
+| Agent mutation safety | **`explicit_user_intent`** | Varies | Rare |
+| Secret storage | **Hard-refused** | Often allowed | Often allowed |
+| Default RSS path | **Lite (no MCP SDK)** | N/A | Full stack |
+| Multi-agent isolation | **`DELX_MEMORY_NAMESPACE`** | Tenants | Manual |
+| Search | **FTS5 bm25** | Embeddings (cost/leak) | Graph walk |
+
+Not a vector DB. Not a second brain SaaS. Local continuity for agents that already have a model.
+
+## Tools (15)
+
+
+### Session start
 
 | Tool | Purpose |
 |---|---|
-| `memory_stats` | High-level: total keys, DB size, oldest entry, DB path. **Start here on any session.** |
-| `memory_list` | List keys (not values) with optional prefix or tag filter. |
-| `memory_get` | Exact key lookup. Returns value + timestamps + tags + metadata. |
-| `memory_search` | FTS5 full-text search across keys, values and tags — bm25 relevance ranking, stemming, diacritic folding, prefix matching; LIKE fallback if FTS5 is missing. Returns snippets. See the [search quickstart](./examples/fts5-search.md). |
+| `memory_handoff` | **One-call resume brief**: stats + recent keys (optional values). Prefer this at session start. |
+| `memory_agent_manifest` | Machine install/ops contract for agents. |
+| `memory_connection_status` / `memory_stats` | Readiness + store size. |
+| `memory_capabilities` / `memory_data_inventory` | Self-description for agents. |
+
+### Reads
+
+| Tool | Purpose |
+|---|---|
+| `memory_list` | Keys only; filters: `prefix`, `tag`, **`since`** (delta sync). |
+| `memory_get` / `memory_get_many` | Exact key or batch (max 50). |
+| `memory_search` | FTS5 bm25 (+ LIKE fallback). See [search quickstart](./examples/fts5-search.md). |
 
 ### Mutations (require `explicit_user_intent: true`)
 
 | Tool | Purpose |
 |---|---|
-| `memory_set` | Upsert a key. Rejects credential-shaped keys/values. |
-| `memory_forget` | Delete one key. Idempotent. |
-| `memory_forget_by_tag` | Bulk-delete every entry carrying a given tag. |
-| `memory_export` | Dump store as JSON / JSONL / Markdown, with optional `since` / `until` window. |
+| `memory_set` / `memory_set_batch` | Upsert one key or up to 50 in one transaction. |
+| `memory_forget` / `memory_forget_by_tag` | Delete one key or by tag. |
+| `memory_export` | Dump JSON / JSONL / Markdown. |
 
 Every mutation refuses to run unless the caller passes `explicit_user_intent: true`. The intent: an agent that decides on its own to update memory must show its work. The user can see the flag in the tool call and reject it if they didn't ask.
 

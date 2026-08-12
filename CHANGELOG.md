@@ -13,6 +13,19 @@
 
 # Changelog
 
+## 0.4.0
+
+SOTA-oriented agent memory release (still local-first, still no embeddings/cloud).
+
+- **`memory_handoff`** — one-call session resume brief (stats + recent keys).
+- **`memory_get_many` / `memory_set_batch`** — batch read/write (max 50), batch writes are transactional.
+- **`memory_list.since`** — delta sync by `updated_at` for session resume.
+- **`DELX_MEMORY_NAMESPACE`** — multi-agent key isolation (`namespace::key`).
+- SQLite **`busy_timeout=5000`** (WAL already on) for concurrent agent writers.
+- `scripts/bench-rss.mjs` — directional lite vs sdk RSS probe.
+- Docs/README: accurate 15-tool surface + comparison table.
+
+
 ## 0.3.0
 
 - **Lite stdio transport (default):** newline JSON-RPC tools path that does **not** load `@modelcontextprotocol/sdk` at boot (`--lite` / `DELX_MEMORY_TRANSPORT=lite`).

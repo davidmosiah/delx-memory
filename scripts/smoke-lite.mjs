@@ -21,7 +21,7 @@ try {
   const names = tools.tools.map((t) => t.name).sort();
   assert.ok(names.includes("memory_set"));
   assert.ok(names.includes("memory_get"));
-  assert.equal(names.length, 12, `expected 12 tools, got ${names.length}: ${names.join(",")}`);
+  assert.equal(names.length, 15, `expected 12 tools, got ${names.length}: ${names.join(",")}`);
 
   let r = await client.callTool({
     name: "memory_set",

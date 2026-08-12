@@ -23,6 +23,9 @@ export function buildCapabilities() {
       { name: "memory_forget", summary: "Delete one key (explicit_user_intent required)." },
       { name: "memory_forget_by_tag", summary: "Bulk delete by tag (explicit_user_intent required)." },
       { name: "memory_export", summary: "Export dump (explicit_user_intent required)." },
+      { name: "memory_get_many", summary: "Batch get by keys." },
+      { name: "memory_set_batch", summary: "Atomic multi-upsert (explicit_user_intent required)." },
+      { name: "memory_handoff", summary: "Session resume brief (stats + recent keys)." },
     ],
     recommended_agent_flow: [
       "Call memory_agent_manifest once.",
@@ -30,6 +33,12 @@ export function buildCapabilities() {
       "memory_list / memory_search to discover keys; memory_get for values.",
       "Only set/forget/export with explicit_user_intent: true from the user.",
     ],
+    namespace: "Optional DELX_MEMORY_NAMESPACE env prefixes all keys (multi-agent isolation).",
+    transports: {
+      lite: "default tools-only stdio without MCP SDK",
+      sdk: "full MCP SDK with prompts/resources",
+      http: "loopback Streamable HTTP",
+    },
     mutation_gating: "All writes require explicit_user_intent: true; secret-shaped keys/values are refused.",
     links: {
       github: "https://github.com/davidmosiah/delx-memory",

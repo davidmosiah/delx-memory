@@ -59,6 +59,12 @@ export const MemoryListInputSchema = z.object({
     .optional()
     .describe("Only return keys starting with this string."),
   tag: z.string().max(64).optional().describe("Only return keys carrying this tag."),
+  since: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional()
+    .describe("Unix ms — only keys with updated_at >= since (session resume / delta sync)."),
   limit: z
     .number()
     .int()
@@ -142,6 +148,47 @@ export const MemoryExportInputSchema = z.object({
   explicit_user_intent: ExplicitUserIntentSchema,
 });
 
+
+export const MemoryGetManyInputSchema = z.object({
+  keys: z
+    .array(KeySchema)
+    .min(1)
+    .max(50)
+    .describe("Exact keys to fetch (max 50). Missing keys omitted."),
+  privacy_mode: PrivacyModeSchema.optional(),
+});
+
+export const MemorySetBatchInputSchema = z.object({
+  entries: z
+    .array(
+      z.object({
+        key: KeySchema,
+        value: z.unknown(),
+        ttl_seconds: z.number().int().positive().max(60 * 60 * 24 * 365 * 10).optional(),
+        tags: TagsSchema,
+        metadata: MetadataSchema,
+      }),
+    )
+    .min(1)
+    .max(50)
+    .describe("Upsert up to 50 entries atomically in one transaction."),
+  explicit_user_intent: ExplicitUserIntentSchema,
+});
+
+export const MemoryHandoffInputSchema = z.object({
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(30)
+    .default(12)
+    .describe("How many recent keys to include in the handoff brief."),
+  include_values: z
+    .boolean()
+    .default(false)
+    .describe("If true, include structured values (can be large). Default: keys + tags + timestamps only."),
+});
+
 export type MemoryGetInput = z.infer<typeof MemoryGetInputSchema>;
 export type MemoryListInput = z.infer<typeof MemoryListInputSchema>;
 export type MemorySearchInput = z.infer<typeof MemorySearchInputSchema>;
@@ -150,3 +197,7 @@ export type MemorySetInput = z.infer<typeof MemorySetInputSchema>;
 export type MemoryForgetInput = z.infer<typeof MemoryForgetInputSchema>;
 export type MemoryForgetByTagInput = z.infer<typeof MemoryForgetByTagInputSchema>;
 export type MemoryExportInput = z.infer<typeof MemoryExportInputSchema>;
+export type MemoryGetManyInput = z.infer<typeof MemoryGetManyInputSchema>;
+export type MemorySetBatchInput = z.infer<typeof MemorySetBatchInputSchema>;
+export type MemoryHandoffInput = z.infer<typeof MemoryHandoffInputSchema>;
+
