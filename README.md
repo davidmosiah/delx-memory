@@ -62,6 +62,19 @@ The `doctor` command checks Node version, DB writability, and file permissions, 
 
 ---
 
+## HTTP (v2 stateless)
+
+Default is **stdio**. Optional Streamable HTTP — no session id, JSON responses, loopback only:
+
+```bash
+npx -y delx-memory --http
+# GET  http://127.0.0.1:3030/health
+# POST http://127.0.0.1:3030/mcp   (sessionless)
+```
+
+Env: `DELX_MEMORY_HOST`, `DELX_MEMORY_PORT`, `DELX_MEMORY_TRANSPORT=http`.
+
+
 ## Wire it into your MCP client
 
 ### Claude Desktop
