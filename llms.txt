@@ -16,3 +16,6 @@ MCP command: delx-memory
 - TTL is best-effort (lazy delete on read), not guaranteed cryptographic erasure.
 - No telemetry. No phone-home. The file is local-only — back it up like any other dotfile if you care about durability.
 - Mutations are explicit: an agent that calls memory_set without explicit_user_intent: true gets a validation error.
+
+Skill (same gates, no MCP client required): skill/SKILL.md
+npx -y delx-memory call <tool> --json '{...}'

@@ -1,6 +1,7 @@
 import { existsSync, statSync } from "node:fs";
 import { SERVER_NAME, SERVER_VERSION, PINNED_NPM_PACKAGE } from "../constants.js";
 import { resolveDbPath, getDbSizeBytes, getDb, sweepExpired } from "../services/db.js";
+import { runToolCall } from "./tool-calls.js";
 
 /** Best-effort resident set size in KiB (macOS/Linux). */
 function processRssKb(): number | null {
@@ -18,6 +19,7 @@ export async function runCliCommand(args: string[]): Promise<number | undefined>
   if (!command || command === "--http") return undefined;
   if (command === "setup") return runSetup(rest);
   if (command === "doctor" || command === "status") return runDoctor(rest);
+  if (command === "call") return runToolCall(rest);
   if (command === "version" || command === "--version" || command === "-v") {
     console.log(SERVER_VERSION);
     return 0;

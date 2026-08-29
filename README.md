@@ -272,3 +272,13 @@ See [`AGENTS.md`](./AGENTS.md) for repo conventions, [`SECURITY.md`](./SECURITY.
 ## License
 
 MIT © 2026 David Batista. [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Skill or MCP
+
+Same package, two doors. MCP registers tools on stdio/HTTP. The [skill](skill/SKILL.md) can drive the **same** tools through the CLI when the client has no MCP:
+
+```bash
+npx -y delx-memory call memory_connection_status --json '{}'
+```
+
+Copy `skill/SKILL.md` into your agent skills dir.
