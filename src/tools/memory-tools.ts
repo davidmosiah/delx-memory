@@ -658,9 +658,16 @@ export function registerMemoryTools(server: ToolServerFacade): void {
       try {
         const input = MemoryForgetByTagInputSchema.parse(rawInput);
         const db = getDb();
-        const info = db
-          .prepare(`DELETE FROM memory WHERE tags LIKE ? ESCAPE '\\'`)
-          .run(tagLikePattern(input.tag));
+        const namespace = resolveNamespace();
+        const namespacePrefix = namespace ? `${namespace}::` : null;
+        // instr matches the literal prefix case-sensitively, including LIKE wildcards.
+        const info = namespacePrefix
+          ? db
+              .prepare(`DELETE FROM memory WHERE tags LIKE ? ESCAPE '\\' AND instr(key, ?) = 1`)
+              .run(tagLikePattern(input.tag), namespacePrefix)
+          : db
+              .prepare(`DELETE FROM memory WHERE tags LIKE ? ESCAPE '\\'`)
+              .run(tagLikePattern(input.tag));
         return makeResponse({
           tag: input.tag,
           deleted_count: info.changes,
@@ -690,6 +697,12 @@ export function registerMemoryTools(server: ToolServerFacade): void {
         const db = getDb();
         const clauses: string[] = [];
         const params: unknown[] = [];
+        const namespace = resolveNamespace();
+        const namespacePrefix = namespace ? `${namespace}::` : null;
+        if (namespacePrefix) {
+          clauses.push("instr(key, ?) = 1");
+          params.push(namespacePrefix);
+        }
         if (typeof input.since === "number") {
           clauses.push("updated_at >= ?");
           params.push(input.since);
