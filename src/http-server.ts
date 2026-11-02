@@ -15,7 +15,7 @@ export async function runHttp(createServer: CreateServerFn): Promise<void> {
   const port = Number(process.env.DELX_MEMORY_PORT ?? 3030);
   const allowedOrigin = process.env.DELX_MEMORY_ALLOWED_ORIGIN ?? `http://${host}:${port}`;
 
-  app.use(express.json({ limit: "1mb" }));
+  app.use(express.json({ limit: "1mb", inflate: false }));
   app.use(cors({ origin: allowedOrigin }));
 
   app.get("/health", (_req, res) => {

@@ -9,6 +9,9 @@ export function createSdkServer(options?: { lean?: boolean }): McpServer {
   const server = new McpServer({
     name: SERVER_NAME,
     version: SERVER_VERSION,
+  }, {
+    // Bound tool arguments before tool input-schema validation (stdio and HTTP).
+    maxToolInputElements: 10_000,
   });
   registerMemoryTools(server as unknown as import("./tool-registry.js").ToolServerFacade);
   const lean =

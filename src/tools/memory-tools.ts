@@ -9,7 +9,6 @@ import {
   getDbSizeBytes,
   isFtsReady,
   namespacedKey,
-  namespacePrefixPattern,
   resolveDbPath,
   resolveNamespace,
   sweepExpired,
@@ -366,16 +365,15 @@ export function registerMemoryTools(server: ToolServerFacade): void {
         const db = getDb();
         const clauses: string[] = [];
         const params: unknown[] = [];
-        // Namespace isolation: always constrain to ns:: when configured
+        // Namespace isolation is exact; prefix matching keeps LIKE semantics.
+        const namespace = resolveNamespace();
+        if (namespace) {
+          clauses.push("instr(key, ?) = 1");
+          params.push(`${namespace}::`);
+        }
         if (input.prefix) {
           clauses.push(`key LIKE ? ESCAPE '\\'`);
           params.push(namespacedKey(input.prefix).replace(/[\\%_]/g, "\\$&") + "%");
-        } else {
-          const nsPat = namespacePrefixPattern();
-          if (nsPat) {
-            clauses.push(`key LIKE ? ESCAPE '\\'`);
-            params.push(nsPat);
-          }
         }
         if (input.tag) {
           clauses.push(`tags LIKE ? ESCAPE '\\'`);
@@ -891,10 +889,10 @@ export function registerMemoryTools(server: ToolServerFacade): void {
         const db = getDb();
         const clauses: string[] = [];
         const params: unknown[] = [];
-        const nsPat = namespacePrefixPattern();
-        if (nsPat) {
-          clauses.push(`key LIKE ? ESCAPE '\\'`);
-          params.push(nsPat);
+        const namespace = resolveNamespace();
+        if (namespace) {
+          clauses.push("instr(key, ?) = 1");
+          params.push(`${namespace}::`);
         }
         const where = clauses.length ? "WHERE " + clauses.join(" AND ") : "";
         const countRow = db

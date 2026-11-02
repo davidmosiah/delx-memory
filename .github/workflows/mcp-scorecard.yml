@@ -3,14 +3,29 @@ on:
   push:
     branches: [main]
   pull_request:
+permissions:
+  contents: read
 jobs:
   scorecard:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: npm ci || npm install
+      - run: npm ci
       - run: npm test
-      - run: npx -y mcp-scorecard@0.5.4 . --min-score 90
+      - name: Checkout reviewed scorecard source
+        uses: actions/checkout@v4
+        with:
+          repository: davidmosiah/mcp-scorecard
+          ref: e211c329379d52e47b0fafc0b54de7a6575617b3
+          path: .audit/scorecard
+          persist-credentials: false
+      - name: Build immutable scorecard (no lifecycle scripts)
+        working-directory: .audit/scorecard
+        run: npm ci --ignore-scripts && npm run build
+      - name: Audit both documented transport contracts
+        run: node scripts/audit-transport-contracts.mjs .audit/scorecard
