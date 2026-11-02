@@ -153,44 +153,51 @@ function ftsSupported(db: Database.Database): boolean {
 function setupFts(db: Database.Database): boolean {
   if (!ftsSupported(db)) return false;
   try {
-    db.exec(`
-      CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(
-        key, value, tags,
-        content='memory',
-        content_rowid='rowid',
-        tokenize='porter unicode61 remove_diacritics 2'
-      );
+    // Install triggers and rebuild against one write-locked snapshot. A crash
+    // rolls back the entire bootstrap instead of publishing a partial index.
+    db.transaction(() => {
+      db.exec(`
+        CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(
+          key, value, tags,
+          content='memory',
+          content_rowid='rowid',
+          tokenize='porter unicode61 remove_diacritics 2'
+        );
 
-      CREATE TRIGGER IF NOT EXISTS memory_fts_ai AFTER INSERT ON memory BEGIN
-        INSERT INTO memory_fts(rowid, key, value, tags)
-        VALUES (new.rowid, new.key, new.value, COALESCE(new.tags, ''));
-      END;
+        CREATE TRIGGER IF NOT EXISTS memory_fts_ai AFTER INSERT ON memory BEGIN
+          INSERT INTO memory_fts(rowid, key, value, tags)
+          VALUES (new.rowid, new.key, new.value, COALESCE(new.tags, ''));
+        END;
 
-      CREATE TRIGGER IF NOT EXISTS memory_fts_ad AFTER DELETE ON memory BEGIN
-        INSERT INTO memory_fts(memory_fts, rowid, key, value, tags)
-        VALUES ('delete', old.rowid, old.key, old.value, COALESCE(old.tags, ''));
-      END;
+        CREATE TRIGGER IF NOT EXISTS memory_fts_ad AFTER DELETE ON memory BEGIN
+          INSERT INTO memory_fts(memory_fts, rowid, key, value, tags)
+          VALUES ('delete', old.rowid, old.key, old.value, COALESCE(old.tags, ''));
+        END;
 
-      CREATE TRIGGER IF NOT EXISTS memory_fts_au AFTER UPDATE ON memory BEGIN
-        INSERT INTO memory_fts(memory_fts, rowid, key, value, tags)
-        VALUES ('delete', old.rowid, old.key, old.value, COALESCE(old.tags, ''));
-        INSERT INTO memory_fts(rowid, key, value, tags)
-        VALUES (new.rowid, new.key, new.value, COALESCE(new.tags, ''));
-      END;
-    `);
+        CREATE TRIGGER IF NOT EXISTS memory_fts_au AFTER UPDATE ON memory BEGIN
+          INSERT INTO memory_fts(memory_fts, rowid, key, value, tags)
+          VALUES ('delete', old.rowid, old.key, old.value, COALESCE(old.tags, ''));
+          INSERT INTO memory_fts(rowid, key, value, tags)
+          VALUES (new.rowid, new.key, new.value, COALESCE(new.tags, ''));
+        END;
+      `);
 
-    // Backfill rows that predate the FTS index (in-place upgrade from 0.1.x).
-    const ftsCount = db
-      .prepare<unknown[], { c: number }>("SELECT COUNT(*) AS c FROM memory_fts")
-      .get();
-    const memCount = db
-      .prepare<unknown[], { c: number }>("SELECT COUNT(*) AS c FROM memory")
-      .get();
-    if ((ftsCount?.c ?? 0) === 0 && (memCount?.c ?? 0) > 0) {
-      db.exec(
-        "INSERT INTO memory_fts(memory_fts) VALUES ('rebuild');",
-      );
-    }
+      // An external-content FTS table's unqualified SELECT reads the content
+      // table, not the index: COUNT(memory_fts) cannot detect a missing backfill.
+      // Our default columnsize=1 index maintains one docsize row per indexed row.
+      // This also repairs an empty index left by an earlier bootstrap version.
+      const ftsCount = db
+        .prepare<unknown[], { c: number }>("SELECT COUNT(*) AS c FROM memory_fts_docsize")
+        .get();
+      const memCount = db
+        .prepare<unknown[], { c: number }>("SELECT COUNT(*) AS c FROM memory")
+        .get();
+      if ((ftsCount?.c ?? 0) !== (memCount?.c ?? 0)) {
+        db.exec(
+          "INSERT INTO memory_fts(memory_fts) VALUES ('rebuild');",
+        );
+      }
+    }).immediate();
     return true;
   } catch {
     // If anything in FTS setup fails we degrade gracefully to LIKE search.
