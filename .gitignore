@@ -9,3 +9,7 @@ dist/
 *.log
 npm-debug.log*
 coverage/
+
+# Local audited source and generated transport reports
+.audit/
+scorecard-results/
