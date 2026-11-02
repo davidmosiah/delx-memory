@@ -133,19 +133,21 @@ function ftsSearch(
   db: ReturnType<typeof getDb>,
   query: string,
   limit: number,
+  namespace: string | null,
 ): SearchHit[] | null {
   const match = buildFtsMatch(query);
   if (!match) return null;
+  const prefix = namespace ? `${namespace}::` : null;
   const rows = db
     .prepare<unknown[], MemoryRow & { rank: number }>(
       `SELECT m.*, bm25(memory_fts, 5.0, 1.0, 2.0) AS rank
        FROM memory_fts
        JOIN memory m ON m.rowid = memory_fts.rowid
-       WHERE memory_fts MATCH ?
+       WHERE memory_fts MATCH ?${prefix ? " AND instr(m.key, ?) = 1" : ""}
        ORDER BY rank
        LIMIT ?`,
     )
-    .all(match, limit);
+    .all(match, ...(prefix ? [prefix] : []), limit);
   return rows.map((r) => ({
     key: r.key,
     // Negate bm25 (lower = better) into a positive descending score, rounded.
@@ -164,17 +166,19 @@ function likeSearch(
   db: ReturnType<typeof getDb>,
   query: string,
   limit: number,
+  namespace: string | null,
 ): SearchHit[] {
   const escaped = query.replace(/[\\%_]/g, "\\$&");
   const pattern = `%${escaped}%`;
+  const prefix = namespace ? `${namespace}::` : null;
   const rows = db
     .prepare<unknown[], MemoryRow>(
       `SELECT * FROM memory
-       WHERE key LIKE ? ESCAPE '\\' OR value LIKE ? ESCAPE '\\'
+       WHERE (key LIKE ? ESCAPE '\\' OR value LIKE ? ESCAPE '\\')${prefix ? " AND instr(key, ?) = 1" : ""}
        ORDER BY updated_at DESC
        LIMIT ?`,
     )
-    .all(pattern, pattern, Math.min(limit * 4, 400));
+    .all(pattern, pattern, ...(prefix ? [prefix] : []), Math.min(limit * 4, 400));
   return rows
     .map((r) => ({ row: r, score: scoreMatch(r, query) }))
     .filter((s) => s.score > 0)
@@ -431,11 +435,13 @@ export function registerMemoryTools(server: ToolServerFacade): void {
         sweepExpired();
         const db = getDb();
 
+        // Apply exact namespace scope in SQL before either engine truncates candidates.
+        const ns = resolveNamespace();
         let results: SearchHit[] | null = null;
         let engine: "fts5" | "like" = "like";
         if (isFtsReady()) {
           try {
-            results = ftsSearch(db, input.query, input.limit);
+            results = ftsSearch(db, input.query, input.limit, ns);
             if (results !== null) engine = "fts5";
           } catch {
             // FTS query failed unexpectedly — degrade to LIKE this call.
@@ -443,12 +449,11 @@ export function registerMemoryTools(server: ToolServerFacade): void {
           }
         }
         if (results === null) {
-          results = likeSearch(db, input.query, input.limit);
+          results = likeSearch(db, input.query, input.limit, ns);
           engine = "like";
         }
 
-        // Namespace scope (post-filter — FTS may match other agents' keys)
-        const ns = resolveNamespace();
+        // Defensive scope check and display-only key shaping; SQL already scoped LIMIT.
         if (ns) {
           const prefix = `${ns}::`;
           results = results.filter((r) => r.key.startsWith(prefix)).map((r) => ({
@@ -472,7 +477,7 @@ export function registerMemoryTools(server: ToolServerFacade): void {
           query: input.query,
           engine,
           privacy_mode: privacy,
-          namespace: resolveNamespace(),
+          namespace: ns,
           count: shaped.length,
           results: shaped,
         });

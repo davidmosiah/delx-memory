@@ -91,3 +91,18 @@ $ memory_search({ query: "preferences" })
 
 Neither value body contains the word "preferences" — both match purely on their
 `preferences` **tag**, which the FTS index covers alongside key and value.
+
+## Namespace scope and ranking limits
+
+With `DELX_MEMORY_NAMESPACE` set, exact case-sensitive namespace filtering is
+applied **before** the FTS or LIKE result limit. Other namespaces cannot consume
+that namespace's result slots. Empty/unset namespace remains the global view.
+FTS bm25 statistics still use the shared database corpus; scores are not an
+independent per-namespace index or an authorization boundary.
+
+LIKE fallback preserves its bounded heuristic: select up to `4 * limit` recent
+matching rows within scope, then rank them. It does not guarantee the globally
+best substring matches across every row, and it does not provide FTS stemming,
+diacritic folding or tag-only matching. Concurrent processes use SQLite WAL and
+a 5-second busy timeout; this is not a guarantee of unlimited writers, crash
+recovery or protection from same-user code changing process-global environment.
