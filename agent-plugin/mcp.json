@@ -1,0 +1,14 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "delx-memory": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "delx-memory@0.4.1"
+      ],
+      "cwd": "${PLUGIN_DATA}"
+    }
+  }
+}
