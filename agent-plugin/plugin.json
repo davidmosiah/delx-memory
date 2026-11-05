@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "delx-memory",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Keep durable, searchable memory across sessions and agents with the local delx-memory MCP server (SQLite on this machine).",
   "author": {
     "name": "David Mosiah",
