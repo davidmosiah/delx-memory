@@ -6,7 +6,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "delx-memory@0.4.1"
+        "delx-memory@0.4.2"
       ],
       "cwd": "${PLUGIN_DATA}"
     }

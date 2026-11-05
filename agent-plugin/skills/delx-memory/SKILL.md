@@ -6,7 +6,7 @@ description: >-
 
 # Delx Memory
 
-MCP server `delx-memory` from the `delx-memory@0.4.1` npm package, run locally through `npx`. It reads key/value memories with tags, search, export and session handoff notes shared across agents on this machine. Data source: no network service: a local SQLite database at ~/.delx-memory/db.sqlite (override with DELX_MEMORY_PATH).
+MCP server `delx-memory` from the `delx-memory@0.4.2` npm package, run locally through `npx`. It reads key/value memories with tags, search, export and session handoff notes shared across agents on this machine. Data source: no network service: a local SQLite database at ~/.delx-memory/db.sqlite (override with DELX_MEMORY_PATH).
 
 ## Workflow
 
@@ -16,7 +16,7 @@ MCP server `delx-memory` from the `delx-memory@0.4.1` npm package, run locally t
 ## Setup (the user runs this in a terminal, not in chat)
 
 ```bash
-npx -y delx-memory@0.4.1 doctor
+npx -y delx-memory@0.4.2 doctor
 ```
 
 No setup; the database is created on first write.
