@@ -1,3 +1,12 @@
+## 0.4.2 - 2026-11-05
+
+### Security and reliability
+
+- Enforce exact configured namespace boundaries for list, handoff, export and tag deletion. Scope FTS and LIKE search candidates before limiting results so other namespaces do not hide matching memories.
+- Atomically install and backfill legacy or count-mismatched FTS indexes, preserving the existing LIKE fallback when FTS is unavailable.
+- Bound SDK tool arguments to 10,000 elements and reject compressed HTTP bodies; the existing 1 MiB HTTP body limit remains.
+- Distribute the merged MCP SDK and transitive dependency security updates. Existing memory contents stay local; upgrading does not delete or export the store.
+
 ## 0.4.1 - 2026-08-29
 
 Skill layer ships in-package (`skill/SKILL.md`). Agents can use MCP tools **or** `call <tool> --json` on the same binary; mutation gates stay identical.

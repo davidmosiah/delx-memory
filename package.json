@@ -1,6 +1,6 @@
 {
   "name": "delx-memory",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Local-first multi-agent memory MCP. Shared SQLite + FTS5, secret-blocking, lite transport (no SDK by default), namespaces, batch + handoff tools.",
   "type": "module",
   "bin": {
