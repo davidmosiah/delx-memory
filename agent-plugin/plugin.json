@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "delx-memory",
+  "version": "0.4.1",
+  "description": "Keep durable, searchable memory across sessions and agents with the local delx-memory MCP server (SQLite on this machine).",
+  "author": {
+    "name": "David Mosiah",
+    "url": "https://github.com/davidmosiah"
+  },
+  "homepage": "https://github.com/davidmosiah/delx-memory",
+  "repository": "https://github.com/davidmosiah/delx-memory",
+  "license": "MIT",
+  "keywords": [
+    "agent-memory",
+    "ai-agents",
+    "hermes",
+    "local-first",
+    "mcp",
+    "memory",
+    "model-context-protocol",
+    "persistent-memory",
+    "sqlite"
+  ]
+}
